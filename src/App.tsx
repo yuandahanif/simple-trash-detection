@@ -1,6 +1,6 @@
-import { useEffect, useState, useRef } from "react";
-import * as cocoSsd from "@tensorflow-models/coco-ssd";
+import { useEffect, useState, useRef, useCallback } from "react";
 import * as tf from "@tensorflow/tfjs";
+import * as tmImage from "@teachablemachine/image";
 import Webcam from "react-webcam";
 
 const videoWidth = 500;
@@ -11,14 +11,33 @@ const videoConstraints = {
   facingMode: "environment",
 };
 
+const URL = "/model/trash/";
+const modelURL = URL + "model.json";
+const metadataURL = URL + "metadata.json";
+
 function App() {
-  const [model, setModel] = useState<cocoSsd.ObjectDetection>();
+  const [model, setModel] = useState<tmImage.CustomMobileNet>();
   const webcamRef = useRef<Webcam>(null);
+  const imgRef = useRef<HTMLImageElement | null>(null);
   const loopId = useRef<number | null>(null);
+  const [detectedName, setDetectedName] = useState("");
+
+  const [showImage, setShowImage] = useState(false);
+
+  const capture = useCallback(() => {
+    if (webcamRef.current) {
+      const imageSrc = webcamRef.current.getScreenshot();
+
+      if (imgRef.current && imageSrc) {
+        setShowImage(true);
+        imgRef.current.src = imageSrc;
+      }
+    }
+  }, [webcamRef]);
 
   async function loadModel() {
     try {
-      const model = await cocoSsd.load();
+      const model = await tmImage.load(modelURL, metadataURL);
       setModel(model);
       console.log("set loaded Model");
     } catch (err) {
@@ -27,66 +46,34 @@ function App() {
     }
   }
 
-  async function predictionFunction() {
-    //Clear the canvas for each prediction
-    const cnvs = document.getElementById("myCanvas") as HTMLCanvasElement;
-    const ctx = cnvs?.getContext("2d");
-
-    if (webcamRef?.current == null) return;
-    if (ctx == null) return;
-
-    ctx?.clearRect(
-      0,
-      0,
-      webcamRef.current.video?.videoWidth ?? 0,
-      webcamRef.current.video?.videoHeight ?? 0
-    );
-
-    //Start prediction
-    const predictions = await model?.detect(
-      document.getElementById("img") as HTMLImageElement
-    );
-
-    if (predictions && predictions.length > 0) {
-      console.log(predictions);
-
-      for (let n = 0; n < predictions.length; n++) {
-        if (predictions[n].score > 0.2) {
-          //Threshold is 0.8 or 80%
-          //Extracting the coordinate and the bounding box information
-          const bboxLeft = predictions[n].bbox[0];
-          const bboxTop = predictions[n].bbox[1];
-          const bboxWidth = predictions[n].bbox[2];
-          const bboxHeight = predictions[n].bbox[3] - bboxTop;
-
-          //Drawing begin
-          ctx.beginPath();
-          ctx.font = "28px Arial";
-          ctx.fillStyle = "red";
-          ctx.fillText(
-            predictions[n].class +
-              ": " +
-              Math.round(parseFloat(predictions[n].score.toString()) * 100) +
-              "%",
-            bboxLeft,
-            bboxTop
-          );
-          ctx.rect(bboxLeft, bboxTop, bboxWidth, bboxHeight);
-          ctx.strokeStyle = "#FF0000";
-          ctx.lineWidth = 3;
-          ctx.stroke();
-        }
-      }
-    }
-
-    //Rerun prediction by timeout
-    loopId.current = setTimeout(() => predictionFunction(), 500);
-  }
-
-  function predictionStop() {
+  function detectionStop() {
     if (loopId.current) {
+      capture();
       clearInterval(loopId.current);
     }
+  }
+
+  async function decetionStart() {
+    setShowImage(false);
+    setDetectedName("");
+    //Start prediction
+
+    const predictions = await model?.predictTopK(
+      document.getElementById("img") as HTMLImageElement,
+      3
+    );
+
+    console.log(predictions);
+
+    //Rerun prediction by timeout
+    loopId.current = setTimeout(() => decetionStart(), 500);
+
+    predictions?.forEach((p) => {
+      if (p.probability > 0.8 && p.className != "nothing") {
+        setDetectedName(p.className);
+        detectionStop();
+      }
+    });
   }
 
   useEffect(() => {
@@ -96,45 +83,48 @@ function App() {
   }, []);
 
   return (
-    <div className="flex h-screen flex-col items-center justify-center bg-red-300">
+    <div className="flex h-screen flex-col items-center justify-center gap-4">
       <div
-        className={`relative bg-red-100 w-[${videoWidth}px] h-[${videoHeight}px]`}
+        className={`relative bg-white`}
+        style={{ width: videoWidth, height: videoHeight }}
       >
         <Webcam
           audio={false}
           id="img"
-          className={`w-[${videoWidth}px] h-[${videoHeight}px]`}
+          className={`absolute w-[${videoWidth}px] h-[${videoHeight}px]`}
           ref={webcamRef}
           screenshotQuality={1}
           screenshotFormat="image/jpeg"
-          width={videoWidth}
-          height={videoHeight}
           videoConstraints={videoConstraints}
         />
-        <canvas
-          id="myCanvas"
-          className="absolute top-0"
-          width={videoWidth}
-          height={videoHeight}
-          style={{ backgroundColor: "transparent" }}
+
+        <img
+          alt="foto"
+          ref={imgRef}
+          className="absolute grayscale"
+          style={{
+            width: videoWidth - 50,
+            height: videoHeight - 50,
+            display: showImage ? "block" : "none",
+            translate: "25px 25px",
+          }}
         />
+        {detectedName != "" && (
+          <div className="absolute bottom-10 left-1/2 -translate-x-1/2 text-center text-white">
+            {detectedName}
+            <br />
+          </div>
+        )}
       </div>
 
-      <div className="">
+      <div className="flex gap-8">
         <button
+          className="rounded-full bg-red-300 px-5 py-2 text-white duration-200 hover:shadow-md"
           onClick={() => {
-            predictionFunction();
+            decetionStart();
           }}
         >
-          Start Detect
-        </button>
-
-        <button
-          onClick={() => {
-            predictionStop();
-          }}
-        >
-          Stop Detect
+          Mulai
         </button>
       </div>
     </div>
