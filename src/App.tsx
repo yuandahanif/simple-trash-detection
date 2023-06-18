@@ -67,12 +67,12 @@ function App() {
 
       ctx.strokeStyle = "red";
       ctx.lineWidth = 2;
-      ctx.strokeRect(x, y, w, h);
+      ctx.strokeRect(videoWidth - x - w, y, w, h);
 
       ctx.fillStyle = "red";
       ctx.font = "14px Arial";
       ctx.textAlign = "center";
-      ctx.fillText(text, x + w * 0.5, y - 14);
+      ctx.fillText(text, videoWidth - x - w + w * 0.5, y - 14);
     },
     []
   );
@@ -104,10 +104,8 @@ function App() {
 
     //Start prediction
     const predictions = await model?.predictTopK(img, 3);
-    const objectDetection = await cocoSsdModel?.detect(img);
 
     console.log(predictions);
-    console.log(objectDetection);
 
     //Rerun prediction by timeout
     loopId.current = setTimeout(() => decetionStart(), 500);
@@ -118,8 +116,16 @@ function App() {
         detectionStop();
       }
     });
+  }
 
-    objectDetection?.forEach((obj) => {
+  const objectDetection = useCallback(async () => {
+    const img = document.getElementById("img") as HTMLImageElement;
+
+    const prediction = await cocoSsdModel?.detect(img);
+
+    console.log(prediction);
+
+    prediction?.forEach((obj) => {
       drawBox(
         {
           x: obj.bbox[0],
@@ -131,7 +137,9 @@ function App() {
         obj.score < 0.6
       );
     });
-  }
+
+    setTimeout(() => objectDetection(), 500);
+  }, [cocoSsdModel, drawBox]);
 
   useEffect(() => {
     tf.ready()
@@ -188,6 +196,14 @@ function App() {
 
       {modelLoaded && (
         <div className="flex gap-8">
+          <button
+            className="rounded-full bg-red-300 px-5 py-2 text-white duration-200 hover:shadow-md"
+            onClick={() => {
+              objectDetection();
+            }}
+          >
+            Detek
+          </button>
           <button
             className="rounded-full bg-red-300 px-5 py-2 text-white duration-200 hover:shadow-md"
             onClick={() => {
