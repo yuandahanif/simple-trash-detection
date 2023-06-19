@@ -9,7 +9,7 @@ const videoConstraints = {
   facingMode: "environment",
 };
 
-const CustomWebcam = forwardRef<Webcam>((props, ref) => {
+const CustomWebcam = forwardRef<Webcam>((_, ref) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   return (

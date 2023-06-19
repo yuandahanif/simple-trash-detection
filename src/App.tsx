@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { useEffect, useState, useRef, useCallback } from "react";
 import * as tf from "@tensorflow/tfjs";
 import * as tmImage from "@teachablemachine/image";
@@ -30,20 +31,10 @@ function App() {
 
   const [showImage, setShowImage] = useState(false);
 
-  const [socres, setScores] = useState<
+  const [socres, _setScores] = useState<
     { name: string; score: number; isCorrect: boolean }[]
   >([]);
 
-  const capture = useCallback(() => {
-    if (webcamRef.current) {
-      const imageSrc = webcamRef.current.getScreenshot();
-
-      if (imgRef.current && imageSrc) {
-        setShowImage(true);
-        // imgRef.current.src = imageSrc;
-      }
-    }
-  }, [webcamRef]);
 
   const drawBox = useCallback(
     (
