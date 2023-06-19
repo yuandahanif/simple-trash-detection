@@ -21,7 +21,8 @@ function App() {
   const webcamRef = useRef<Webcam>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const imgRef = useRef<HTMLImageElement | null>(null);
-  const loopId = useRef<number | null>(null);
+  const trashDetectionIdRef = useRef<number | null>(null);
+  const objectDetectionIdRef = useRef<number | null>(null);
 
   const [modelLoaded, setModelLoaded] = useState(false);
   const [model, setModel] = useState<tmImage.CustomMobileNet>();
@@ -90,14 +91,14 @@ function App() {
     }
   }
 
-  function detectionStop() {
-    if (loopId.current) {
+  function trashDetectionStop() {
+    if (trashDetectionIdRef.current) {
       capture();
-      clearInterval(loopId.current);
+      clearInterval(trashDetectionIdRef.current);
     }
   }
 
-  async function decetionStart() {
+  async function trashDetection() {
     setShowImage(false);
     setDetectedName("");
     const img = document.getElementById("img") as HTMLImageElement;
@@ -108,15 +109,21 @@ function App() {
     console.log(predictions);
 
     //Rerun prediction by timeout
-    loopId.current = setTimeout(() => decetionStart(), 500);
+    trashDetectionIdRef.current = setTimeout(() => trashDetection(), 500);
 
     predictions?.forEach((p) => {
       if (p.probability > 0.8 && p.className != "nothing") {
         setDetectedName(p.className);
-        detectionStop();
+        trashDetectionStop();
       }
     });
   }
+
+  const stopObjectDetection = () => {
+    if (objectDetectionIdRef.current) {
+      clearInterval(objectDetectionIdRef.current);
+    }
+  };
 
   const objectDetection = useCallback(async () => {
     const img = document.getElementById("img") as HTMLImageElement;
@@ -138,7 +145,7 @@ function App() {
       );
     });
 
-    setTimeout(() => objectDetection(), 500);
+    objectDetectionIdRef.current = setTimeout(() => objectDetection(), 500);
   }, [cocoSsdModel, drawBox]);
 
   useEffect(() => {
@@ -150,6 +157,14 @@ function App() {
         setModelLoaded(true);
       });
   }, []);
+
+  useEffect(() => {
+    if (modelLoaded) {
+      objectDetection();
+    }
+
+    return () => stopObjectDetection();
+  }, [modelLoaded, objectDetection]);
 
   return (
     <div className="flex h-screen flex-col items-center justify-center gap-4">
@@ -199,15 +214,7 @@ function App() {
           <button
             className="rounded-full bg-red-300 px-5 py-2 text-white duration-200 hover:shadow-md"
             onClick={() => {
-              objectDetection();
-            }}
-          >
-            Detek
-          </button>
-          <button
-            className="rounded-full bg-red-300 px-5 py-2 text-white duration-200 hover:shadow-md"
-            onClick={() => {
-              decetionStart();
+              trashDetection();
             }}
           >
             Mulai
