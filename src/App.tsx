@@ -19,6 +19,7 @@ const modelURL = URL + "model.json";
 const metadataURL = URL + "metadata.json";
 
 function App() {
+  const mascotContainerRef = useRef<HTMLDivElement>(null);
   const webcamRef = useRef<Webcam>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const imgRef = useRef<HTMLImageElement | null>(null);
@@ -29,12 +30,11 @@ function App() {
   const [cocoSsdModel, setCocoSsdModel] = useState<cocoSsd.ObjectDetection>();
   const [detectedName, setDetectedName] = useState("");
 
+  const [detectionStep, setDetectionStep] = useState<
+    "person" | "trash" | "bin" | "result"
+  >("person");
+
   const [showImage, setShowImage] = useState(false);
-
-  const [socres, _setScores] = useState<
-    { name: string; score: number; isCorrect: boolean }[]
-  >([]);
-
 
   const drawBox = useCallback(
     (
@@ -72,6 +72,29 @@ function App() {
     []
   );
 
+  const displayMascot = () => {
+    if (mascotContainerRef.current == null) return;
+    const springTransform = [
+      { opacity: "1" },
+      { transform: "scale(.9)" },
+      { transform: "scale(1.1)" },
+      { transform: "scale(1)" },
+    ];
+
+    // mascotContainerRef.current.style.opacity = "0";
+    mascotContainerRef.current.classList.replace("hidden", "flex");
+    mascotContainerRef.current?.animate(springTransform, {
+      duration: 1000,
+      iterations: 1,
+      endDelay: 2000,
+    });
+
+    setTimeout(() => {
+      if (mascotContainerRef.current == null) return;
+      mascotContainerRef.current.classList.replace("flex", "hidden");
+    }, 3000);
+  };
+
   async function loadModel() {
     try {
       const model = await tmImage.load(modelURL, metadataURL);
@@ -98,27 +121,10 @@ function App() {
     predictions?.forEach((p) => {
       if (p.probability > 0.9 && p.className != "nothing") {
         setDetectedName(p.className);
-
-        // setScores((scores) => {
-        //   scores.push({
-        //     isCorrect: true,
-        //     name: p.className,
-        //     score: p.probability,
-        //   });
-
-        //   scores = scores.slice(-4, 3);
-
-        //   return scores;
-        // });
+        setDetectionStep("bin");
       }
     });
   }, [model]);
-
-  const stopObjectDetection = () => {
-    if (objectDetectionIdRef.current) {
-      clearInterval(objectDetectionIdRef.current);
-    }
-  };
 
   const objectDetection = useCallback(async () => {
     const img = document.getElementById("img") as HTMLImageElement;
@@ -140,12 +146,60 @@ function App() {
       );
 
       if (obj.class == "person" && obj.score > 0.6) {
-        trashDetection();
+        setDetectionStep("trash");
       }
     });
+  }, [cocoSsdModel, drawBox]);
 
-    objectDetectionIdRef.current = setTimeout(() => objectDetection(), 500);
-  }, [cocoSsdModel, drawBox, trashDetection]);
+  const stoptDetection = () => {
+    if (objectDetectionIdRef.current) {
+      clearInterval(objectDetectionIdRef.current);
+    }
+  };
+
+  const detection = useCallback(() => {
+    console.log(
+      "file: App.tsx:170 ~ detection ~ detectionStep:",
+      detectionStep
+    );
+    if (detectionStep == "person") {
+      objectDetection();
+    }
+
+    if (detectionStep == "trash") {
+      trashDetection();
+    }
+
+    if (detectionStep == "bin") {
+      setDetectionStep("result");
+      // * SIMULASI deteksi sensor benar
+      // const clickListener = () => {
+      //   if (confirm("benar")) {
+      //     window.removeEventListener("click", clickListener);
+      //   }
+      // };
+      // window.addEventListener("click", clickListener);
+      // // * SIMULASI deteksi sensor salah
+      // const rightClickListener = (e: MouseEvent) => {
+      //   e.preventDefault();
+      //   if (confirm("benar")) {
+      //     if (confirm("salah")) {
+      //       setDetectionStep("person");
+      //       window.removeEventListener("contextmenu", rightClickListener);
+      //     }
+      //   }
+      //   return false;
+      // };
+      // window.addEventListener("contextmenu", rightClickListener);
+    }
+
+    if (detectionStep == "result") {
+      displayMascot();
+      setDetectionStep("person");
+    }
+
+    objectDetectionIdRef.current = setTimeout(() => detection(), 1000);
+  }, [detectionStep, objectDetection, trashDetection]);
 
   useEffect(() => {
     tf.ready()
@@ -159,11 +213,11 @@ function App() {
 
   useEffect(() => {
     if (modelLoaded) {
-      objectDetection();
+      detection();
     }
 
-    return () => stopObjectDetection();
-  }, [modelLoaded, objectDetection]);
+    return () => stoptDetection();
+  }, [detection, modelLoaded, objectDetection]);
 
   return (
     <div className="mx-auto flex h-screen max-w-screen-xl flex-col items-center justify-center gap-4 bg-[#F4EAFF]">
@@ -224,41 +278,30 @@ function App() {
         />
 
         {detectedName != "" && (
-          <div className="absolute bottom-10 left-1/2 -translate-x-1/2 bg-green-400 text-center text-white">
+          <div className="absolute bottom-10 left-1/2 -translate-x-1/2 rounded-md bg-green-400 px-3 py-1 text-center text-white">
             {detectedName}
-            <br />
           </div>
         )}
       </div>
 
-      <div className="mt-8 flex flex-col items-center font-IndieFlower">
-        <h1 className="mb-3 text-4xl font-semibold text-green-400">Riwayat</h1>
-        <div style={{ width: videoWidth }} className="flex flex-col gap-2">
-          {socres.reverse().map((score) => (
-            <div
-              key={score.score}
-              className={`w-full rounded-md p-4 text-white ${
-                score.isCorrect ? "bg-green-400" : "bg-red-400"
-              }`}
-            >
-              <span className="text-lg">{score.name}</span>
-            </div>
-          ))}
+      <div className="mt-8">
+        <div className="rounded-md bg-green-400 px-3 py-1 text-center text-xl text-white">
+          {detectionStep == "person" &&
+            "Perlihatkan wajah anda kedalam kamera!"}
+          {detectionStep == "trash" &&
+            "Wajah terdeteksi! Perlihatkan sampah ke kamera!"}
+          {detectionStep == "bin" &&
+            "Sampah terdeteksi! Silahkan pilih tempat sampah"}
         </div>
       </div>
 
-      {/* {modelLoaded && (
-        <div className="flex gap-8">
-          <button
-            className="rounded-full bg-red-300 px-5 py-2 font-IndieFlower text-white duration-200 hover:shadow-md"
-            onClick={() => {
-              trashDetection();
-            }}
-          >
-            Mulai
-          </button>
-        </div>
-      )} */}
+      <div
+        ref={mascotContainerRef}
+        className="fixed hidden h-96 w-96 flex-col items-center justify-center gap-3 rounded-lg bg-green-400 text-white shadow-xl"
+      >
+        <img src="/images/mascot-happy.png" className="animate-bounce" />
+        <span className="text-2xl font-semibold">100 Buat kamu</span>
+      </div>
     </div>
   );
 }
