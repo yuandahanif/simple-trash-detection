@@ -1,3 +1,20 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+.blink {
+  animation: blink-a 2s infinite;
+  animation-delay: 6s;
+}
+
+@keyframes blink-a {
+  0% {
+    @apply h-0;
+  }
+  50% {
+    @apply h-4;
+  }
+  100% {
+    @apply h-4;
+  }
+}
