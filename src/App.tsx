@@ -21,7 +21,7 @@ function App() {
   }, []);
 
   return (
-    <div className="relative flex min-h-screen w-full flex-col bg-[#F4EAFF]">
+    <div className="relative flex min-h-screen w-full flex-col bg-[#C4D7B2]">
       <div>
         {component == "idle" && <Idle />}
         {component == "detection" && (
