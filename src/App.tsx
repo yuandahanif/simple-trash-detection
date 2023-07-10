@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState } from "react";
 import Detection from "./views/detection";
 import Credit from "./views/credit";
 import Idle from "./views/idle";
